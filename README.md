@@ -1,4 +1,4 @@
-﻿# Fraud Detection System - Complete Project Documentation
+﻿# Fraud Detection System - Project Documentation
 
 ## 📋 Table of Contents
 
