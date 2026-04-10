@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuralGuard — AI Fraud Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07090f;--bg2:#0c1018;--panel:rgba(255,255,255,0.035);--panel-b:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.08);--border-h:rgba(99,179,237,0.4);
+  --blue:#63b3ed;--cyan:#4fd1c5;--indigo:#7f9cf5;
+  --text:#e2e8f0;--text-d:#718096;--text-dd:#4a5568;
+  --success:#68d391;--danger:#fc8181;
+  --glow-b:rgba(99,179,237,0.15);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* Grid bg */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(99,179,237,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,179,237,0.04) 1px,transparent 1px);
+  background-size:52px 52px;animation:gridDrift 25s linear infinite;z-index:0;pointer-events:none;
+}
+@keyframes gridDrift{0%{transform:translateY(0)}100%{transform:translateY(52px)}}
+
+/* Blobs */
+.blob{position:fixed;border-radius:50%;filter:blur(130px);pointer-events:none;z-index:0;animation:blobF 14s ease-in-out infinite}
+.b1{width:600px;height:600px;background:rgba(99,179,237,0.055);top:-200px;left:-200px;animation-delay:0s}
+.b2{width:500px;height:500px;background:rgba(79,209,197,0.045);bottom:-150px;right:-150px;animation-delay:-7s}
+.b3{width:380px;height:380px;background:rgba(127,156,245,0.04);top:45%;left:35%;animation-delay:-3.5s}
+@keyframes blobF{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(25px,-25px) scale(1.04)}}
+
+/* Nav */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;height:64px;
+  background:rgba(7,9,15,0.75);backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 48px;justify-content:space-between;
+}
+.nav-brand{
+  display:flex;align-items:center;gap:12px;
+  font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800;
+  letter-spacing:-0.02em;color:var(--text);
+}
+.brand-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--cyan);box-shadow:0 0 12px var(--cyan);
+  animation:pip 2s ease-in-out infinite;
+}
+@keyframes pip{0%,100%{box-shadow:0 0 12px var(--cyan);transform:scale(1)}50%{box-shadow:0 0 24px var(--cyan);transform:scale(1.2)}}
+.status-pill{
+  display:flex;align-items:center;gap:6px;padding:5px 14px;
+  background:rgba(104,211,145,0.08);border:1px solid rgba(104,211,145,0.2);
+  border-radius:100px;color:var(--success);font-family:'DM Mono',monospace;font-size:0.68rem;
+}
+.pip2{width:6px;height:6px;border-radius:50%;background:var(--success);animation:pip 1.5s ease-in-out infinite}
+.nav-time{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-dd);padding-left:16px;border-left:1px solid var(--border);margin-left:12px}
+
+/* Hero */
+.hero{
+  position:relative;z-index:10;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:100px 24px 60px;text-align:center;
+}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;padding:6px 18px;
+  background:rgba(99,179,237,0.08);border:1px solid rgba(99,179,237,0.2);
+  border-radius:100px;font-family:'DM Mono',monospace;font-size:0.68rem;
+  color:var(--blue);letter-spacing:0.12em;text-transform:uppercase;
+  margin-bottom:32px;animation:fadeUp 0.8s ease both;
+}
+.hero-title{
+  font-family:'Syne',sans-serif;font-size:clamp(2.8rem,7vw,5.2rem);
+  font-weight:800;line-height:1.06;letter-spacing:-0.03em;
+  color:var(--text);margin-bottom:24px;animation:fadeUp 0.8s ease 0.1s both;
+}
+.grad{
+  background:linear-gradient(135deg,var(--blue) 0%,var(--cyan) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-sub{
+  max-width:500px;font-size:1rem;font-weight:300;color:var(--text-d);
+  line-height:1.75;margin-bottom:48px;animation:fadeUp 0.8s ease 0.2s both;
+}
+.cta-row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;animation:fadeUp 0.8s ease 0.3s both}
+
+.btn-main{
+  position:relative;display:inline-flex;align-items:center;gap:10px;
+  padding:15px 34px;background:linear-gradient(135deg,var(--blue),var(--cyan));
+  color:#07090f;font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;
+  text-decoration:none;border-radius:8px;overflow:hidden;transition:all 0.3s;
+  box-shadow:0 8px 32px rgba(99,179,237,0.22);
+}
+.btn-main:hover{transform:translateY(-2px);box-shadow:0 16px 48px rgba(99,179,237,0.38)}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:10px;padding:15px 34px;
+  background:var(--panel);color:var(--text-d);font-family:'Syne',sans-serif;
+  font-size:0.9rem;font-weight:600;text-decoration:none;border-radius:8px;
+  border:1px solid var(--border);transition:all 0.3s;
+}
+.btn-ghost:hover{border-color:var(--border-h);color:var(--text);background:var(--panel-b)}
+
+/* Hero visual */
+.hero-visual{
+  width:100%;max-width:940px;margin:56px auto 0;
+  animation:fadeUp 0.8s ease 0.4s both;
+}
+.img-wrap{
+  position:relative;border-radius:14px;overflow:hidden;
+  border:1px solid var(--border);
+  box-shadow:0 0 0 1px rgba(255,255,255,0.03),0 40px 100px rgba(0,0,0,0.6),0 0 100px rgba(99,179,237,0.04);
+}
+.hero-img{width:100%;height:320px;object-fit:cover;display:block;filter:saturate(0.4) brightness(0.5) hue-rotate(185deg)}
+.img-fade{
+  position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 25%,var(--bg) 100%),
+             linear-gradient(90deg,rgba(99,179,237,0.06) 0%,transparent 70%);
+}
+.scan-line{
+  position:absolute;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  opacity:0.5;animation:scanAnim 5s linear infinite;
+}
+@keyframes scanAnim{0%{top:-2px;opacity:0}10%{opacity:0.5}90%{opacity:0.5}100%{top:100%;opacity:0}}
+
+/* Float cards */
+.fc{
+  position:absolute;background:rgba(7,9,15,0.88);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:10px;padding:12px 16px;
+}
+.fc-1{top:20px;left:20px;animation:fcf 7s ease-in-out infinite}
+.fc-2{top:20px;right:20px;animation:fcf 7s ease-in-out -3.5s infinite}
+.fc-3{bottom:70px;left:50%;transform:translateX(-50%);animation:fcf3 7s ease-in-out -1.5s infinite}
+@keyframes fcf{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes fcf3{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
+.fc-lbl{font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--text-dd);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px}
+.fc-num{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:700}
+.fc-num.b{color:var(--blue)}.fc-num.r{color:var(--danger)}.fc-num.g{color:var(--success)}
+
+/* Stats */
+.stats-wrap{position:relative;z-index:10;max-width:940px;margin:0 auto;padding:0 24px}
+.stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+  background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;
+}
+.stat{background:var(--bg2);padding:28px 20px;text-align:center;transition:background 0.3s}
+.stat:hover{background:var(--panel)}
+.stat-n{
+  font-family:'Syne',sans-serif;font-size:1.9rem;font-weight:800;margin-bottom:4px;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.stat-l{font-size:0.7rem;color:var(--text-dd);text-transform:uppercase;letter-spacing:0.08em}
+
+/* Ticker */
+.ticker-outer{
+  position:relative;z-index:10;border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);padding:12px 0;overflow:hidden;margin:60px 0;
+}
+.ticker-t{
+  display:flex;white-space:nowrap;
+  animation:tick 24s linear infinite;
+  font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--text-dd);
+}
+.ticker-t span{padding:0 28px}
+.ticker-t .hi{color:var(--blue)}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* Features */
+.features-sec{position:relative;z-index:10;max-width:940px;margin:0 auto;padding:60px 24px 100px}
+.sec-tag{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--cyan);text-transform:uppercase;letter-spacing:0.2em;margin-bottom:12px}
+.sec-title{font-family:'Syne',sans-serif;font-size:1.9rem;font-weight:800;color:var(--text);margin-bottom:40px;letter-spacing:-0.02em}
+.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.fcard{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:26px 22px;transition:all 0.3s;position:relative;overflow:hidden;
+}
+.fcard::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--blue),var(--cyan));
+  transform:scaleX(0);transition:transform 0.4s ease;
+}
+.fcard:hover{border-color:var(--border-h);background:var(--panel-b);transform:translateY(-4px)}
+.fcard:hover::before{transform:scaleX(1)}
+.fcard-ico{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:14px}
+.ic-b{background:rgba(99,179,237,0.1);border:1px solid rgba(99,179,237,0.2)}
+.ic-c{background:rgba(79,209,197,0.1);border:1px solid rgba(79,209,197,0.2)}
+.ic-i{background:rgba(127,156,245,0.1);border:1px solid rgba(127,156,245,0.2)}
+.ic-g{background:rgba(104,211,145,0.1);border:1px solid rgba(104,211,145,0.2)}
+.fcard h3{font-family:'Syne',sans-serif;font-size:0.92rem;font-weight:700;color:var(--text);margin-bottom:7px}
+.fcard p{font-size:0.8rem;color:var(--text-d);line-height:1.65}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+
+<nav>
+  <div class="nav-brand"><div class="brand-dot"></div>NeuralGuard</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="status-pill"><span class="pip2"></span>All Systems Operational</div>
+    <div class="nav-time" id="navTime">--:--:--</div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="eyebrow">⬡ AI Fraud Detection Engine v2.3</div>
+  <h1 class="hero-title">Detect Fraud.<br><span class="grad">Protect Every Transaction.</span></h1>
+  <p class="hero-sub">Machine learning models trained on 6M+ real-world transactions analyze patterns in real time — classifying threats before they cause damage.</p>
+  <div class="cta-row">
+    <a href="/predict" class="btn-main">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Run Fraud Scan
+    </a>
+    <a href="#features" class="btn-ghost">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      How It Works
+    </a>
+  </div>
+
+  <div class="hero-visual">
+    <div class="img-wrap">
+      <img class="hero-img"
+           src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1400&q=80"
+           alt="Cyber Network"
+           onerror="this.src='https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1400&q=80'">
+      <div class="img-fade"></div>
+      <div class="scan-line"></div>
+      <div class="fc fc-1">
+        <div class="fc-lbl">Live TPS</div>
+        <div class="fc-num b" id="tpsC">4,218</div>
+      </div>
+      <div class="fc fc-2">
+        <div class="fc-lbl">Fraud Blocked</div>
+        <div class="fc-num r">₹8.3M</div>
+      </div>
+      <div class="fc fc-3">
+        <div class="fc-lbl">Model Accuracy</div>
+        <div class="fc-num g">79.2%</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="stats-wrap">
+  <div class="stats-grid">
+    <div class="stat"><div class="stat-n" id="s1">0</div><div class="stat-l">Transactions Analyzed</div></div>
+    <div class="stat"><div class="stat-n" id="s2">0</div><div class="stat-l">Frauds Detected</div></div>
+    <div class="stat"><div class="stat-n" id="s3">0</div><div class="stat-l">ML Algorithms</div></div>
+    <div class="stat"><div class="stat-n" id="s4">0%</div><div class="stat-l">Detection Accuracy</div></div>
+  </div>
+</div>
+
+<div class="ticker-outer">
+  <div class="ticker-t">
+    <span>STATUS <span class="hi">ONLINE</span></span><span>MODEL <span class="hi">SVC v1.0</span></span>
+    <span>ALGO <span class="hi">Random Forest</span></span><span>ALGO <span class="hi">XGBoost</span></span>
+    <span>ALGO <span class="hi">Extra Trees</span></span><span>ALGO <span class="hi">Decision Tree</span></span>
+    <span>DATASET <span class="hi">6.3M Records</span></span><span>ENCRYPTION <span class="hi">AES-256</span></span>
+    <span>LATENCY <span class="hi">&lt;50ms</span></span><span>FRAMEWORK <span class="hi">Flask + sklearn</span></span>
+    <span>STATUS <span class="hi">ONLINE</span></span><span>MODEL <span class="hi">SVC v1.0</span></span>
+    <span>ALGO <span class="hi">Random Forest</span></span><span>ALGO <span class="hi">XGBoost</span></span>
+    <span>ALGO <span class="hi">Extra Trees</span></span><span>ALGO <span class="hi">Decision Tree</span></span>
+    <span>DATASET <span class="hi">6.3M Records</span></span><span>ENCRYPTION <span class="hi">AES-256</span></span>
+    <span>LATENCY <span class="hi">&lt;50ms</span></span><span>FRAMEWORK <span class="hi">Flask + sklearn</span></span>
+  </div>
+</div>
+
+<div class="features-sec" id="features">
+  <div class="sec-tag">// Capabilities</div>
+  <div class="sec-title">Built to detect. Designed to protect.</div>
+  <div class="fg">
+    <div class="fcard"><div class="fcard-ico ic-b">🧠</div><h3>Neural Ensemble</h3><p>Five ML algorithms in parallel — best-performing model auto-selected for each prediction.</p></div>
+    <div class="fcard"><div class="fcard-ico ic-c">⚡</div><h3>Real-Time Analysis</h3><p>Sub-50ms response time. Transactions are classified the moment data is submitted.</p></div>
+    <div class="fcard"><div class="fcard-ico ic-i">📊</div><h3>8-Factor Scoring</h3><p>Evaluates step, type, amount, origin/destination balances, and bank flags simultaneously.</p></div>
+    <div class="fcard"><div class="fcard-ico ic-g">🔐</div><h3>Pattern Intelligence</h3><p>Trained on 6.3M historical transactions, catching fraud signatures humans can't see.</p></div>
+  </div>
+</div>
+
+<script>
+function tick(){document.getElementById('navTime').textContent=new Date().toLocaleTimeString('en-US',{hour12:false})}
+setInterval(tick,1000);tick();
+let tps=4218;setInterval(()=>{tps+=Math.floor(Math.random()*18-5);document.getElementById('tpsC').textContent=tps.toLocaleString()},1400);
+function animCount(id,target,sfx='',dur=2000){
+  const el=document.getElementById(id),s=Date.now();
+  (function step(){const p=Math.min((Date.now()-s)/dur,1),e=1-Math.pow(1-p,3);
+    el.textContent=Math.floor(e*target).toLocaleString()+sfx;if(p<1)requestAnimationFrame(step)})();
+}
+const ob=new IntersectionObserver(en=>{if(en[0].isIntersecting){animCount('s1',6362621);animCount('s2',8213);animCount('s3',5);animCount('s4',79,'%');ob.disconnect()}});
+ob.observe(document.getElementById('s1'));
+</script>
+</body>
+</html>

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuralGuard — Transaction Scanner</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07090f;--bg2:#0c1018;--panel:rgba(255,255,255,0.035);--panel-b:rgba(255,255,255,0.06);
+  --border:rgba(255,255,255,0.08);--border-h:rgba(99,179,237,0.45);
+  --blue:#63b3ed;--cyan:#4fd1c5;--indigo:#7f9cf5;
+  --text:#e2e8f0;--text-d:#718096;--text-dd:#4a5568;
+  --success:#68d391;--danger:#fc8181;--warn:#f6ad55;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(99,179,237,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(99,179,237,0.035) 1px,transparent 1px);
+  background-size:52px 52px;animation:gd 25s linear infinite;z-index:0;pointer-events:none;
+}
+@keyframes gd{0%{transform:translateY(0)}100%{transform:translateY(52px)}}
+.blob{position:fixed;border-radius:50%;filter:blur(130px);pointer-events:none;z-index:0;animation:bf 14s ease-in-out infinite}
+.b1{width:500px;height:500px;background:rgba(99,179,237,0.05);top:-150px;right:-100px;animation-delay:0s}
+.b2{width:400px;height:400px;background:rgba(79,209,197,0.04);bottom:-100px;left:-100px;animation-delay:-7s}
+@keyframes bf{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-20px)}}
+
+/* Nav */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;height:64px;
+  background:rgba(7,9,15,0.8);backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 40px;justify-content:space-between;
+}
+.brand{display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:var(--text);text-decoration:none}
+.brand-dot{width:9px;height:9px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan);animation:pip 2s ease-in-out infinite}
+@keyframes pip{0%,100%{box-shadow:0 0 10px var(--cyan)}50%{box-shadow:0 0 20px var(--cyan)}}
+.nav-r{display:flex;align-items:center;gap:10px;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-dd)}
+.spill{display:flex;align-items:center;gap:5px;padding:4px 12px;background:rgba(104,211,145,0.08);border:1px solid rgba(104,211,145,0.2);border-radius:100px;color:var(--success)}
+.spip{width:5px;height:5px;border-radius:50%;background:var(--success);animation:pip 1.5s ease-in-out infinite}
+
+/* Layout */
+.page{position:relative;z-index:10;max-width:1100px;margin:0 auto;padding:88px 24px 60px;display:grid;grid-template-columns:280px 1fr;gap:28px}
+@media(max-width:860px){.page{grid-template-columns:1fr}.sidebar{display:none}}
+
+/* Sidebar */
+.sidebar{padding-top:8px;display:flex;flex-direction:column;gap:16px}
+.scard{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden}
+.scard::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:linear-gradient(180deg,var(--blue),var(--cyan))}
+.scard-title{font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--text-dd);text-transform:uppercase;letter-spacing:0.18em;margin-bottom:14px}
+
+.scard-img{width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:12px;filter:saturate(0.4) brightness(0.5) hue-rotate(180deg)}
+
+/* Threat bars */
+.tbar-row{margin-bottom:10px}
+.tbar-top{display:flex;justify-content:space-between;font-size:0.62rem;color:var(--text-dd);margin-bottom:4px;font-family:'DM Mono',monospace}
+.tbar-track{height:5px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden}
+.tbar-fill{height:100%;border-radius:2px;animation:barIn 1.5s ease both}
+@keyframes barIn{from{width:0!important}}
+.tb-r{background:linear-gradient(90deg,var(--danger),#ff6b6b);box-shadow:0 0 6px rgba(252,129,129,0.4)}
+.tb-y{background:linear-gradient(90deg,var(--warn),#fbd38d);box-shadow:0 0 6px rgba(246,173,85,0.3)}
+.tb-g{background:linear-gradient(90deg,var(--success),#9ae6b4);box-shadow:0 0 6px rgba(104,211,145,0.3)}
+
+/* Log lines */
+.log{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--text-dd);line-height:2}
+.log .ok{color:var(--success)}.log .hi{color:var(--blue)}.log .warn{color:var(--warn)}
+
+/* Sysinfo */
+.sysrow{display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:0.62rem;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.sysrow:last-child{border-bottom:none}
+.syskey{color:var(--text-dd)}.sysval{color:var(--blue)}
+
+/* Main form area */
+.main-col{}
+.form-header{margin-bottom:24px}
+.back-link{display:inline-flex;align-items:center;gap:6px;color:var(--text-dd);text-decoration:none;font-size:0.78rem;transition:color 0.2s;margin-bottom:20px;font-family:'DM Mono',monospace}
+.back-link:hover{color:var(--blue)}
+.form-title{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;color:var(--text);letter-spacing:-0.02em;margin-bottom:6px}
+.form-sub{font-size:0.82rem;color:var(--text-d)}
+
+/* Steps */
+.steps{display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.step-item{flex:1;padding:10px;text-align:center;font-size:0.62rem;font-family:'DM Mono',monospace;color:var(--text-dd);text-transform:uppercase;letter-spacing:0.08em;border-right:1px solid var(--border);background:var(--bg2);transition:all 0.3s}
+.step-item:last-child{border-right:none}
+.step-item.active{background:rgba(99,179,237,0.08);color:var(--blue);border-bottom:2px solid var(--blue)}
+.step-item.done{background:rgba(104,211,145,0.05);color:var(--success)}
+
+/* Form card */
+.form-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:32px;position:relative;overflow:hidden}
+.form-card::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--blue),var(--cyan),transparent);
+  opacity:0.5;
+}
+
+/* Form grid */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:540px){.fgrid{grid-template-columns:1fr}}
+.full{grid-column:1/-1}
+
+.flabel{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--text-d);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center}
+.flabel .fid{color:var(--text-dd);font-size:0.55rem}
+.fhint{font-size:0.68rem;color:var(--text-dd);margin-top:5px;font-family:'Inter',sans-serif}
+
+input[type=number]{
+  width:100%;background:rgba(0,0,0,0.35);
+  border:1px solid rgba(255,255,255,0.1);border-top-color:rgba(255,255,255,0.15);
+  color:var(--text);font-family:'DM Mono',monospace;font-size:0.95rem;
+  padding:11px 14px;border-radius:8px;outline:none;
+  transition:all 0.25s;-moz-appearance:textfield;
+}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+input[type=number]:focus{border-color:rgba(99,179,237,0.5);background:rgba(99,179,237,0.04);box-shadow:0 0 0 3px rgba(99,179,237,0.08)}
+input[type=number]::placeholder{color:var(--text-dd)}
+
+/* Type selector */
+.type-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tbtn{
+  padding:10px 4px;background:rgba(0,0,0,0.3);
+  border:1px solid rgba(255,255,255,0.08);border-radius:7px;
+  color:var(--text-dd);font-family:'DM Mono',monospace;font-size:0.6rem;
+  cursor:pointer;text-align:center;transition:all 0.2s;
+  line-height:1.4;
+}
+.tbtn:hover,.tbtn.sel{background:rgba(99,179,237,0.1);border-color:rgba(99,179,237,0.4);color:var(--blue)}
+.tbtn .tc{font-size:0.52rem;color:var(--text-dd);display:block;margin-top:3px}
+.tbtn.sel .tc{color:rgba(99,179,237,0.5)}
+
+/* Flag toggle */
+.flag-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fbtn{
+  padding:11px;background:rgba(0,0,0,0.3);border-radius:7px;cursor:pointer;
+  font-family:'DM Mono',monospace;font-size:0.65rem;text-align:center;
+  transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.fbtn.f-ok{border:1px solid rgba(104,211,145,0.2);color:rgba(104,211,145,0.5)}
+.fbtn.f-ok.sel,.fbtn.f-ok:hover{background:rgba(104,211,145,0.08);border-color:rgba(104,211,145,0.5);color:var(--success)}
+.fbtn.f-bad{border:1px solid rgba(252,129,129,0.2);color:rgba(252,129,129,0.4)}
+.fbtn.f-bad.sel,.fbtn.f-bad:hover{background:rgba(252,129,129,0.07);border-color:rgba(252,129,129,0.5);color:var(--danger)}
+
+/* Divider */
+.fdiv{grid-column:1/-1;position:relative;height:1px;background:rgba(255,255,255,0.06);margin:4px 0}
+.fdiv::before{content:attr(data-l);position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--bg);padding:0 12px;font-size:0.6rem;font-family:'DM Mono',monospace;color:var(--text-dd);text-transform:uppercase;letter-spacing:0.12em;white-space:nowrap}
+
+/* Warning */
+.wbox{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(246,173,85,0.06);border:1px solid rgba(246,173,85,0.18);border-radius:8px;font-size:0.75rem;color:rgba(246,173,85,0.8)}
+
+/* Submit button */
+.btn-submit{
+  width:100%;padding:15px;margin-top:4px;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  color:#07090f;font-family:'Syne',sans-serif;font-size:0.95rem;font-weight:700;
+  border:none;border-radius:8px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:all 0.3s;box-shadow:0 8px 24px rgba(99,179,237,0.2);
+  letter-spacing:0.02em;
+}
+.btn-submit:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(99,179,237,0.35)}
+.btn-submit:active{transform:translateY(0)}
+
+/* Sample buttons */
+.sample-btn{
+  width:100%;padding:9px;border-radius:7px;cursor:pointer;
+  font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.05em;
+  transition:all 0.2s;margin-bottom:8px;
+}
+.s-fraud{background:rgba(252,129,129,0.06);border:1px solid rgba(252,129,129,0.2);color:rgba(252,129,129,0.7)}
+.s-fraud:hover{background:rgba(252,129,129,0.12);border-color:rgba(252,129,129,0.4)}
+.s-legit{background:rgba(104,211,145,0.05);border:1px solid rgba(104,211,145,0.15);color:rgba(104,211,145,0.6)}
+.s-legit:hover{background:rgba(104,211,145,0.1);border-color:rgba(104,211,145,0.35)}
+
+/* Validator */
+.vrow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-family:'DM Mono',monospace;font-size:0.62rem}
+.vrow:last-child{border-bottom:none}
+.vkey{color:var(--text-dd)}.vval{font-size:0.6rem}
+
+/* ════════════════════════════════
+   PROCESSING OVERLAY
+════════════════════════════════ */
+#overlay{
+  position:fixed;inset:0;z-index:9999;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(7,9,15,0.92);
+  backdrop-filter:blur(12px);
+}
+#overlay.active{display:flex}
+
+.overlay-bg{
+  position:absolute;inset:0;overflow:hidden;
+}
+
+/* Rotating rings behind card */
+.ring{
+  position:absolute;border-radius:50%;border:1px solid rgba(99,179,237,0.12);
+  left:50%;top:50%;transform:translate(-50%,-50%);
+  animation:spin linear infinite;
+}
+.ring-1{width:300px;height:300px;animation-duration:8s;border-color:rgba(99,179,237,0.15)}
+.ring-2{width:500px;height:500px;animation-duration:14s;animation-direction:reverse;border-color:rgba(79,209,197,0.1)}
+.ring-3{width:700px;height:700px;animation-duration:20s;border-color:rgba(127,156,245,0.07)}
+.ring-4{width:900px;height:900px;animation-duration:28s;animation-direction:reverse;border-color:rgba(99,179,237,0.05)}
+@keyframes spin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+
+/* Particle dots */
+.particles{position:absolute;inset:0;overflow:hidden}
+.particle{
+  position:absolute;width:3px;height:3px;border-radius:50%;
+  background:var(--blue);opacity:0;
+  animation:particleAnim linear infinite;
+}
+@keyframes particleAnim{
+  0%{transform:translate(var(--sx),var(--sy)) scale(0);opacity:0}
+  20%{opacity:0.6}
+  80%{opacity:0.3}
+  100%{transform:translate(var(--ex),var(--ey)) scale(1);opacity:0}
+}
+
+/* Overlay card */
+.ov-card{
+  position:relative;z-index:10;
+  background:rgba(12,16,24,0.9);
+  border:1px solid rgba(99,179,237,0.2);
+  border-radius:16px;
+  padding:48px 56px;
+  text-align:center;
+  width:100%;max-width:480px;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.04),0 40px 100px rgba(0,0,0,0.6),0 0 80px rgba(99,179,237,0.06);
+  animation:cardIn 0.4s ease both;
+}
+@keyframes cardIn{from{opacity:0;transform:scale(0.95) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+/* Neural icon */
+.ov-icon{
+  width:80px;height:80px;margin:0 auto 28px;position:relative;
+}
+.hex{
+  width:80px;height:80px;
+  background:linear-gradient(135deg,rgba(99,179,237,0.12),rgba(79,209,197,0.08));
+  border:1px solid rgba(99,179,237,0.3);
+  border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;
+  box-shadow:0 0 30px rgba(99,179,237,0.15);
+  animation:iconPulse 2s ease-in-out infinite;
+}
+@keyframes iconPulse{0%,100%{box-shadow:0 0 30px rgba(99,179,237,0.15)}50%{box-shadow:0 0 50px rgba(99,179,237,0.3)}}
+
+/* Orbit ring */
+.orbit{
+  position:absolute;inset:-12px;
+  border:1px dashed rgba(99,179,237,0.3);
+  border-radius:50%;
+  animation:spin 4s linear infinite;
+}
+.orbit-dot{
+  position:absolute;top:-3px;left:50%;margin-left:-3px;
+  width:6px;height:6px;border-radius:50%;
+  background:var(--blue);box-shadow:0 0 8px var(--blue);
+}
+
+.ov-title{
+  font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;
+  color:var(--text);margin-bottom:8px;letter-spacing:-0.01em;
+}
+.ov-sub{font-size:0.8rem;color:var(--text-d);margin-bottom:32px;line-height:1.6}
+
+/* Progress bar */
+.prog-wrap{margin-bottom:28px}
+.prog-label{display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--text-dd);margin-bottom:8px}
+.prog-track{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden}
+.prog-fill{
+  height:100%;border-radius:2px;width:0%;
+  background:linear-gradient(90deg,var(--blue),var(--cyan));
+  box-shadow:0 0 12px rgba(99,179,237,0.5);
+  transition:width 0.4s ease;
+}
+
+/* Step log */
+.step-log{text-align:left;background:rgba(0,0,0,0.3);border-radius:8px;padding:16px;font-family:'DM Mono',monospace;font-size:0.65rem;max-height:160px;overflow:hidden}
+.step-log .sl{padding:3px 0;color:var(--text-dd);display:flex;align-items:center;gap:8px;opacity:0;animation:slIn 0.3s ease both}
+@keyframes slIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.sl .s-ok{color:var(--success)}.sl .s-run{color:var(--blue)}.sl .s-dot{color:var(--text-dd)}
+
+/* Pulsing dots loader */
+.dots{display:flex;gap:6px;justify-content:center;margin-top:20px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--blue);animation:dotB 1.2s ease-in-out infinite}
+.dot:nth-child(2){animation-delay:0.2s}.dot:nth-child(3){animation-delay:0.4s}
+@keyframes dotB{0%,100%{opacity:0.25;transform:scale(0.8)}50%{opacity:1;transform:scale(1.1)}}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="blob b1"></div><div class="blob b2"></div>
+
+<!-- Processing Overlay -->
+<div id="overlay">
+  <div class="overlay-bg">
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+    <div class="ring ring-4"></div>
+    <div class="particles" id="particles"></div>
+  </div>
+  <div class="ov-card">
+    <div class="ov-icon">
+      <div class="orbit"><div class="orbit-dot"></div></div>
+      <div class="hex">🧠</div>
+    </div>
+    <div class="ov-title">Analyzing Transaction</div>
+    <div class="ov-sub">Neural engine is processing your data across 5 ML models. This will take just a moment.</div>
+
+    <div class="prog-wrap">
+      <div class="prog-label"><span id="progLabel">Initializing...</span><span id="progPct">0%</span></div>
+      <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+    </div>
+
+    <div class="step-log" id="stepLog"></div>
+    <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  </div>
+</div>
+
+<nav>
+  <a href="/" class="brand"><div class="brand-dot"></div>NeuralGuard</a>
+  <div class="nav-r">
+    <div class="spill"><span class="spip"></span>Scanner Active</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--text-dd);padding-left:12px;border-left:1px solid var(--border);margin-left:8px" id="navTime">--:--:--</div>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="scard">
+      <div class="scard-title">◈ Network Monitor</div>
+      <img class="scard-img"
+           src="https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600&q=80"
+           alt="Network"
+           onerror="this.style.display='none'">
+      <div class="log">
+        <div><span class="ok">✓</span> Model loaded</div>
+        <div><span class="ok">✓</span> Flask API online</div>
+        <div><span class="hi">◎</span> Scanner ready</div>
+        <div id="logLine" class="warn">⬡ Awaiting input…</div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-title">◈ Threat Index</div>
+      <div class="tbar-row"><div class="tbar-top"><span>CASH_OUT</span><span style="color:var(--danger)">HIGH</span></div><div class="tbar-track"><div class="tbar-fill tb-r" style="width:82%"></div></div></div>
+      <div class="tbar-row"><div class="tbar-top"><span>TRANSFER</span><span style="color:var(--warn)">MED</span></div><div class="tbar-track"><div class="tbar-fill tb-y" style="width:56%"></div></div></div>
+      <div class="tbar-row"><div class="tbar-top"><span>PAYMENT</span><span style="color:var(--success)">LOW</span></div><div class="tbar-track"><div class="tbar-fill tb-g" style="width:21%"></div></div></div>
+      <div class="tbar-row"><div class="tbar-top"><span>DEBIT</span><span style="color:var(--success)">LOW</span></div><div class="tbar-track"><div class="tbar-fill tb-g" style="width:11%"></div></div></div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-title">◈ System Info</div>
+      <div class="sysrow"><span class="syskey">Model</span><span class="sysval">SVC v1.0</span></div>
+      <div class="sysrow"><span class="syskey">Features</span><span class="sysval">8 inputs</span></div>
+      <div class="sysrow"><span class="syskey">Accuracy</span><span class="sysval">~79%</span></div>
+      <div class="sysrow"><span class="syskey">Latency</span><span class="sysval">&lt; 50ms</span></div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-title">◈ Field Status</div>
+      <div id="validator">
+        <div class="vrow"><span class="vkey">Type</span><span class="vval" id="vt" style="color:var(--text-dd)">pending</span></div>
+        <div class="vrow"><span class="vkey">Step</span><span class="vval" id="vs" style="color:var(--text-dd)">—</span></div>
+        <div class="vrow"><span class="vkey">Amount</span><span class="vval" id="va" style="color:var(--text-dd)">—</span></div>
+        <div class="vrow"><span class="vkey">Balances</span><span class="vval" id="vb" style="color:var(--text-dd)">—</span></div>
+        <div class="vrow"><span class="vkey">Flag</span><span class="vval" id="vf" style="color:var(--success)">clear</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-col">
+    <div class="form-header">
+      <a href="/" class="back-link">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Command Center
+      </a>
+      <div class="form-title">Transaction Scanner</div>
+      <div class="form-sub">Enter transaction parameters to run fraud analysis</div>
+    </div>
+
+    <div class="steps">
+      <div class="step-item done">01 Connect</div>
+      <div class="step-item active">02 Input Data</div>
+      <div class="step-item">03 Analyze</div>
+      <div class="step-item">04 Result</div>
+    </div>
+
+    <div class="form-card">
+      <form action="/submit" method="POST" id="scanForm">
+        <div class="fgrid">
+
+          <!-- Transaction Type -->
+          <div class="full">
+            <div class="flabel"><span>Transaction Type</span><span class="fid">PARAM_01</span></div>
+            <div class="type-grid">
+              <div class="tbtn" onclick="selType(0,this)">CASH IN<span class="tc">[0]</span></div>
+              <div class="tbtn" onclick="selType(1,this)">CASH OUT<span class="tc">[1]</span></div>
+              <div class="tbtn" onclick="selType(2,this)">DEBIT<span class="tc">[2]</span></div>
+              <div class="tbtn" onclick="selType(3,this)">PAYMENT<span class="tc">[3]</span></div>
+              <div class="tbtn" onclick="selType(4,this)">TRANSFER<span class="tc">[4]</span></div>
+            </div>
+            <input type="hidden" name="type" id="typeH">
+            <div class="fhint">▸ Click to select the category of this transaction</div>
+          </div>
+
+          <div class="fdiv" data-l="Transaction Metadata"></div>
+
+          <div>
+            <div class="flabel"><span>Time Step</span><span class="fid">PARAM_02</span></div>
+            <input type="number" name="step" id="fstep" placeholder="e.g. 1" min="1" required>
+            <div class="fhint">▸ Time unit (hour) of this transaction</div>
+          </div>
+
+          <div>
+            <div class="flabel"><span>Amount (₹)</span><span class="fid">PARAM_03</span></div>
+            <input type="number" name="amount" id="famt" placeholder="e.g. 9000.00" step="0.01" min="0" required>
+            <div class="fhint">▸ Transaction value in rupees</div>
+          </div>
+
+          <div class="fdiv" data-l="Origin Account"></div>
+
+          <div>
+            <div class="flabel"><span>Origin Balance Before</span><span class="fid">PARAM_04</span></div>
+            <input type="number" name="oldbalanceOrg" id="fobo" placeholder="e.g. 10000.00" step="0.01" min="0" required>
+            <div class="fhint">▸ Balance before deduction</div>
+          </div>
+
+          <div>
+            <div class="flabel"><span>Origin Balance After</span><span class="fid">PARAM_05</span></div>
+            <input type="number" name="newbalanceOrig" id="fnbo" placeholder="e.g. 1000.00" step="0.01" min="0" required>
+            <div class="fhint">▸ Balance after deduction</div>
+          </div>
+
+          <div class="fdiv" data-l="Destination Account"></div>
+
+          <div>
+            <div class="flabel"><span>Destination Balance Before</span><span class="fid">PARAM_06</span></div>
+            <input type="number" name="oldbalanceDest" id="fobd" placeholder="e.g. 0.00" step="0.01" min="0" required>
+            <div class="fhint">▸ Recipient balance before</div>
+          </div>
+
+          <div>
+            <div class="flabel"><span>Destination Balance After</span><span class="fid">PARAM_07</span></div>
+            <input type="number" name="newbalanceDest" id="fnbd" placeholder="e.g. 9000.00" step="0.01" min="0" required>
+            <div class="fhint">▸ Recipient balance after</div>
+          </div>
+
+          <div class="fdiv" data-l="Security Flag"></div>
+
+          <div class="full">
+            <div class="flabel"><span>Bank Flag Status</span><span class="fid">PARAM_08</span></div>
+            <div class="flag-row">
+              <div class="fbtn f-ok sel" id="f0" onclick="selFlag(0)">✓ Not Flagged [0]</div>
+              <div class="fbtn f-bad" id="f1" onclick="selFlag(1)">⚠ Flagged by Bank [1]</div>
+            </div>
+            <input type="hidden" name="isFlaggedFraud" id="flagH" value="0">
+            <div class="fhint">▸ Has the bank already pre-flagged this transaction?</div>
+          </div>
+
+          <div class="wbox">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Ensure all values match the actual transaction. Inaccurate inputs affect prediction quality.
+          </div>
+
+          <div class="full">
+            <button type="submit" class="btn-submit" id="subBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              Run Fraud Analysis
+            </button>
+          </div>
+
+        </div>
+      </form>
+    </div>
+
+    <!-- Sample data below form -->
+    <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="sample-btn s-fraud" onclick="loadFraud()">⚠ Load Fraud Test Data</button>
+      <button class="sample-btn s-legit" onclick="loadLegit()">✓ Load Legit Test Data</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Nav clock
+function tick(){document.getElementById('navTime').textContent=new Date().toLocaleTimeString('en-US',{hour12:false})}
+setInterval(tick,1000);tick();
+
+// Type selection
+function selType(v,el){
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('typeH').value=v;
+  document.getElementById('vt').textContent=['CASH_IN','CASH_OUT','DEBIT','PAYMENT','TRANSFER'][v];
+  document.getElementById('vt').style.color='var(--blue)';
+  document.getElementById('logLine').textContent='⬡ Type selected: '+['CASH_IN','CASH_OUT','DEBIT','PAYMENT','TRANSFER'][v];
+  document.getElementById('logLine').className='hi';
+}
+
+// Flag selection
+function selFlag(v){
+  document.getElementById('f0').classList.toggle('sel',v===0);
+  document.getElementById('f1').classList.toggle('sel',v===1);
+  document.getElementById('flagH').value=v;
+  document.getElementById('vf').textContent=v===0?'clear':'FLAGGED';
+  document.getElementById('vf').style.color=v===0?'var(--success)':'var(--danger)';
+}
+
+// Live validator
+['fstep','famt','fobo','fnbo','fobd','fnbd'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{
+    const s=document.getElementById('fstep').value;
+    const a=document.getElementById('famt').value;
+    const ob=document.getElementById('fobo').value;
+    const nb=document.getElementById('fnbo').value;
+    document.getElementById('vs').textContent=s||'—';
+    document.getElementById('vs').style.color=s?'var(--blue)':'var(--text-dd)';
+    document.getElementById('va').textContent=a?'₹'+parseFloat(a).toLocaleString():'—';
+    document.getElementById('va').style.color=a?'var(--blue)':'var(--text-dd)';
+    document.getElementById('vb').textContent=(ob&&nb)?'set':'—';
+    document.getElementById('vb').style.color=(ob&&nb)?'var(--blue)':'var(--text-dd)';
+  });
+});
+
+// Sample data
+function loadFraud(){
+  selType(1,document.querySelectorAll('.tbtn')[1]);
+  document.getElementById('fstep').value=1;
+  document.getElementById('famt').value=9000;
+  document.getElementById('fobo').value=9000;
+  document.getElementById('fnbo').value=0;
+  document.getElementById('fobd').value=0;
+  document.getElementById('fnbd').value=9000;
+  selFlag(0);
+  document.getElementById('fstep').dispatchEvent(new Event('input'));
+}
+function loadLegit(){
+  selType(3,document.querySelectorAll('.tbtn')[3]);
+  document.getElementById('fstep').value=5;
+  document.getElementById('famt').value=500;
+  document.getElementById('fobo').value=5000;
+  document.getElementById('fnbo').value=4500;
+  document.getElementById('fobd').value=1000;
+  document.getElementById('fnbd').value=1500;
+  selFlag(0);
+  document.getElementById('fstep').dispatchEvent(new Event('input'));
+}
+
+// ── Processing overlay ──
+const steps=[
+  {t:0,   pct:5,  label:'Initializing…',       msg:'◈ Starting neural engine'},
+  {t:400, pct:20, label:'Loading model…',       msg:'✓ SVC model loaded'},
+  {t:800, pct:38, label:'Parsing inputs…',      msg:'✓ 8 parameters parsed'},
+  {t:1200,pct:55, label:'Running inference…',   msg:'◎ Running classification'},
+  {t:1600,pct:72, label:'Cross-checking…',      msg:'◎ Comparing fraud patterns'},
+  {t:2000,pct:88, label:'Generating report…',   msg:'◎ Building result payload'},
+  {t:2400,pct:100,label:'Complete.',             msg:'✓ Analysis complete — redirecting'},
+];
+
+function spawnParticles(){
+  const container=document.getElementById('particles');
+  for(let i=0;i<30;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const sx=Math.random()*100+'vw', sy=Math.random()*100+'vh';
+    const ex=(Math.random()-0.5)*400+'px', ey=(Math.random()-0.5)*400+'px';
+    const dur=2+Math.random()*4, delay=Math.random()*6;
+    p.style.cssText=`left:${sx};top:${sy};--sx:0px;--sy:0px;--ex:${ex};--ey:${ey};animation-duration:${dur}s;animation-delay:${delay}s;background:${Math.random()>0.5?'#63b3ed':'#4fd1c5'}`;
+    container.appendChild(p);
+  }
+}
+
+function runOverlay(){
+  document.getElementById('overlay').classList.add('active');
+  spawnParticles();
+  const log=document.getElementById('stepLog');
+  steps.forEach(({t,pct,label,msg})=>{
+    setTimeout(()=>{
+      document.getElementById('progFill').style.width=pct+'%';
+      document.getElementById('progPct').textContent=pct+'%';
+      document.getElementById('progLabel').textContent=label;
+      const line=document.createElement('div');
+      line.className='sl';
+      line.style.animationDelay='0s';
+      line.innerHTML=`<span style="color:var(--blue);font-size:0.55rem">${new Date().toLocaleTimeString('en-US',{hour12:false})}</span><span>${msg}</span>`;
+      log.appendChild(line);
+      log.scrollTop=log.scrollHeight;
+    },t);
+  });
+}
+
+document.getElementById('scanForm').addEventListener('submit',function(e){
+  if(!document.getElementById('typeH').value){
+    e.preventDefault();
+    alert('Please select a transaction type.');
+    return;
+  }
+  runOverlay();
+  // Let the form submit naturally after overlay shows
+});
+</script>
+</body>
+</html>
